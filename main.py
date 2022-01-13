@@ -1,8 +1,8 @@
 from kivy.app import App
 from kivy.graphics.context_instructions import Color
-from kivy.graphics.vertex_instructions import Rectangle
+from kivy.graphics.vertex_instructions import Rectangle, Ellipse
 from kivy.uix.gridlayout import GridLayout
-from kivy.properties import StringProperty
+from kivy.properties import StringProperty, Clock
 from kivy.uix.widget import Widget
 
 
@@ -20,16 +20,32 @@ class Menu(GridLayout):
 class MainWidget(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.rebound = ["Right", "Up"]
         with self.canvas:
             Color(0, .9, 0)
-            self.rec = Rectangle(pos=(300, 300), size=(300, 400))
+            self.ball = Ellipse(pos=(200, 100), size=(100, 100))
+        Clock.schedule_interval(self.update, 1/60)
 
-    def move_rec_right(self):
-        x, y = self.rec.pos
-        x += 1
-        self.rec.pos = (x, y)
-
-
+    def update(self, dt):
+        x, y = self.ball.pos
+        speed = (2, 2)
+        if x >= self.width - self.ball.size[0]:
+            self.rebound[0] = "Left"
+        elif x <= 0:
+            self.rebound[0] = "Right"
+        if y >= self.height - self.ball.size[1]:
+            self.rebound[1] = "Down"
+        elif y <= 0:
+            self.rebound[1] = "Up"
+        if self.rebound[0] == "Right":
+            x += speed[0]
+        elif self.rebound[0] == "Left":
+            x -= speed[0]
+        if self.rebound[1] == "Up":
+            y += speed[1]
+        elif self.rebound[1] == "Down":
+            y -= speed[1]
+        self.ball.pos = (x, y)
 
 
 class GravApp(App):
