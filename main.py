@@ -49,12 +49,15 @@ class Line3d:
         z1 = self.vertexes[0].z + self.camera.z
         z2 = self.vertexes[1].z + self.camera.z
         try:
-            return (
+            out = (
                 (focal + z1) / z1 * x1 + win.size[0] / 2,
                 (focal + z1) / z1 * y1 + win.size[1] / 2,
                 (focal + z2) / z2 * x2 + win.size[0] / 2,
                 (focal + z2) / z2 * y2 + win.size[1] / 2
             )
+            if (z1 <= 0 or z2 <= 0):
+                out = (0, 0, 0, 0)            
+            return out
         except ZeroDivisionError:
             return 0, 0, 0, 0
 
@@ -62,6 +65,7 @@ class Line3d:
 class Voxel:
     def __init__(self, size, pos, camera):
         self.camera = camera
+        size /= 2
         self.lines = [
             Line3d(Vertex(-size - pos.x, -size - pos.y, -size + pos.z),
                    Vertex(size - pos.x, -size - pos.y, -size + pos.z), self.camera),
@@ -93,22 +97,40 @@ class Voxel:
 class MainWidget(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        fov = 90
-        self.camera = Vertex(0, 0, self.width / 2 / math.tan(fov / 2))  # TODO: rotation
-        self.lines = Voxel(50, Vertex(0, 0, 100), self.camera).lines
+        self.fov = 90
+        self.camera = Vertex(0, 0, 0)  # TODO: rotation
+        self.voxels = [
+            Voxel(10, Vertex(0, 0, 100), self.camera),
+            Voxel(10, Vertex(10, 0, 100), self.camera),
+            Voxel(10, Vertex(20, 0, 100), self.camera),
+            Voxel(10, Vertex(10, 10, 100), self.camera)
+            ]
         self.line_project = []
         with self.canvas:
-            for line in self.lines:
-                self.line_project.append(Line(points=list(map(dp, line.project(50, Window)))))
+            for voxel in self.voxels:
+                for line in voxel.lines:
+                    self.line_project.append(Line(points=list(map(dp, line.project(self.width / 2 / math.tan(self.fov / 2), Window)))))
 
         Clock.schedule_interval(self.update, 1 / 60)
 
     def update(self, dt):
-        self.camera.z -= 1
+        if keyboard.is_pressed("w"):
+            self.camera.y -= 1
+        if keyboard.is_pressed("a"):
+            self.camera.x += 1
+        if keyboard.is_pressed("s"):
+            self.camera.y += 1
+        if keyboard.is_pressed("d"):
+            self.camera.x -= 1
+        if keyboard.is_pressed("q"):
+            self.camera.z += 1
+        if keyboard.is_pressed("e"):
+            self.camera.z -= 1
         i = 0
-        for line in self.lines:
-            self.line_project[i].points = list(map(dp, line.project(50, Window)))
-            i += 1
+        for voxel in self.voxels:
+            for line in voxel.lines:
+                self.line_project[i].points = list(map(dp, line.project(self.width / 2 / math.tan(self.fov / 2), Window)))
+                i += 1
 
 
 class VoxelApp(App):
