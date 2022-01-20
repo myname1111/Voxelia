@@ -1,21 +1,16 @@
-import os
 import math
-import numpy as np
-
-os.environ['KIVY_GL_BACKEND'] = 'angle_sdl2'
-
+import os
 from kivy.app import App
 from kivy.core.window import Window
-from kivy.graphics.context_instructions import Color
-from kivy.graphics.vertex_instructions import Rectangle, Ellipse, Line
+from kivy.graphics.vertex_instructions import Line
 from kivy.metrics import dp
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
-from kivy.properties import StringProperty, Clock
+from kivy.properties import Clock
 import keyboard
-import random
 from kivy.uix.widget import Widget
+import numpy as np
 from kivy.lang.builder import Builder
+
+os.environ['KIVY_GL_BACKEND'] = 'angle_sdl2'
 
 
 def floor_zero(x):
@@ -93,6 +88,7 @@ class Voxel:
             [-size, size, size],
             [-size, size, -size]
         ])
+        self.cords_before_rotation = self.cords.copy()
         rotation_x_pos = np.array([[1, 0, 0],
                                    [0, math.cos(math.radians(pos.xr)), -math.sin(math.radians(pos.xr))],
                                    [0, math.sin(math.radians(pos.xr)), math.cos(math.radians(pos.xr))]])
@@ -133,8 +129,50 @@ class Voxel:
         for i in range(int(len(self.cords) / 2)):
             self.lines.append(Line3d(Vertex(*self.cords[i * 2].tolist()),
                                      Vertex(*self.cords[i * 2 + 1].tolist()), self.camera))
-        
-        
+
+    def update(self, camera):
+        pos = self.pos
+        self.cords = self.cords_before_rotation.copy()
+        rotation_x_pos = np.array([[1, 0, 0],
+                                   [0, math.cos(math.radians(pos.xr)), -math.sin(math.radians(pos.xr))],
+                                   [0, math.sin(math.radians(pos.xr)), math.cos(math.radians(pos.xr))]])
+
+        rotation_y_pos = np.array([[math.cos(math.radians(pos.yr)), 0, -math.sin(math.radians(pos.yr))],
+                                   [0, 1, 0],
+                                   [math.sin(math.radians(pos.yr)), 0, math.cos(math.radians(pos.yr))]])
+
+        rotation_z_pos = np.array([[math.cos(math.radians(pos.zr)), -math.sin(math.radians(pos.zr)), 0],
+                                   [math.sin(math.radians(pos.zr)), math.cos(math.radians(pos.zr)), 0],
+                                   [0, 0, 1]])
+
+        rotation_x_cam = np.array([[1, 0, 0],
+                                   [0, math.cos(math.radians(camera.xr)), -math.sin(math.radians(camera.xr))],
+                                   [0, math.sin(math.radians(camera.xr)), math.cos(math.radians(camera.xr))]])
+
+        rotation_y_cam = np.array([[math.cos(math.radians(camera.yr)), 0, -math.sin(math.radians(camera.yr))],
+                                   [0, 1, 0],
+                                   [math.sin(math.radians(camera.yr)), 0, math.cos(math.radians(camera.yr))]])
+
+        rotation_z_cam = np.array([[math.cos(math.radians(camera.zr)), -math.sin(math.radians(camera.zr)), 0],
+                                   [math.sin(math.radians(camera.zr)), math.cos(math.radians(camera.zr)), 0],
+                                   [0, 0, 1]])
+
+        for i in range(len(self.cords)):
+            self.cords[i] = np.matmul(rotation_y_pos, self.cords[i])
+            self.cords[i] = np.matmul(rotation_x_pos, self.cords[i])
+            self.cords[i] = np.matmul(rotation_z_pos, self.cords[i])
+
+        self.cords += np.array([[camera.x, camera.y, camera.z]] * 24)
+        self.cords += np.array([[pos.x, pos.y, pos.z]] * 24)
+        for i in range(len(self.cords)):
+            self.cords[i] = np.matmul(rotation_y_cam, self.cords[i])
+            self.cords[i] = np.matmul(rotation_x_cam, self.cords[i])
+            self.cords[i] = np.matmul(rotation_z_cam, self.cords[i])
+        self.cords -= np.array([[camera.x, camera.y, camera.z]] * 24)
+        self.lines = []
+        for i in range(int(len(self.cords) / 2)):
+            self.lines.append(Line3d(Vertex(*self.cords[i * 2].tolist()),
+                                     Vertex(*self.cords[i * 2 + 1].tolist()), self.camera))
 
 
 class MainWidget(Widget):
@@ -143,24 +181,44 @@ class MainWidget(Widget):
         self.fov = 90
         self.camera = VertexRotation(0, 0, 0, 0, 0, 0)
         self.voxels = [
-            Voxel(10, VertexRotation(0, 0, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-10, -10, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-20, -20, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-30, -30, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-40, -40, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-50, -50, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-60, -40, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-70, -30, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-80, -20, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-90, -10, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-100, 0, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-30, -20, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-40, -20, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-50, -20, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-60, -20, 100, 0, 0, 0), self.camera),
-            Voxel(10, VertexRotation(-70, -20, 100, 0, 0, 0), self.camera),
+            Voxel(160, VertexRotation(0, 0, 0, 0, 0, 0), self.camera)
         ]
-        self.line_project = []
+        self.line_project = [
+            Voxel(10, VertexRotation(0, 0, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(10, 10, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(20, 20, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(30, 30, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(40, 40, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(50, 50, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(60, 40, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(70, 30, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(80, 20, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(90, 10, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(100, 0, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(30, 20, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(40, 20, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(50, 20, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(60, 20, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(70, 20, 100, 0, 0, 0), self.camera),
+
+            Voxel(10, VertexRotation(120, 0, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(120, 10, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(120, 20, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(120, 30, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(120, 40, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(120, 50, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(160, 10, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(170, 0, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(130, 30, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(140, 30, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(150, 20, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(120, 50, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(130, 50, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(140, 50, 100, 0, 0, 0), self.camera),
+            Voxel(10, VertexRotation(150, 40, 100, 0, 0, 0), self.camera),
+
+            Voxel(10, VertexRotation(120, 0, 100, 0, 0, 0), self.camera)
+        ]
         with self.canvas:
             for voxel in self.voxels:
                 for line in voxel.lines:
@@ -171,41 +229,44 @@ class MainWidget(Widget):
 
     def update(self, dt):
         if keyboard.is_pressed("w"):
-            self.camera.z -= math.cos(math.radians(self.camera.xr))
+            self.camera.z -= math.cos(math.radians(self.camera.xr)) * math.cos(math.radians(self.camera.yr))
             self.camera.y -= math.sin(math.radians(self.camera.xr))
             self.camera.x -= math.sin(math.radians(self.camera.yr))
         if keyboard.is_pressed("a"):
-            self.camera.x += math.cos(math.radians(self.camera.zr))
+            self.camera.x += math.cos(math.radians(self.camera.zr)) * math.cos(math.radians(self.camera.yr))
             self.camera.y += math.sin(math.radians(self.camera.zr))
+            self.camera.z -= math.sin(math.radians(self.camera.yr))
         if keyboard.is_pressed("s"):
-            self.camera.z += math.cos(math.radians(self.camera.xr))
+            self.camera.z += math.cos(math.radians(self.camera.xr)) * math.cos(math.radians(self.camera.yr))
             self.camera.y += math.sin(math.radians(self.camera.xr))
             self.camera.x += math.sin(math.radians(self.camera.yr))
         if keyboard.is_pressed("d"):
-            self.camera.x -= math.cos(math.radians(self.camera.zr))
+            self.camera.x -= math.cos(math.radians(self.camera.zr)) * math.cos(math.radians(self.camera.yr))
             self.camera.y -= math.sin(math.radians(self.camera.zr))
+            self.camera.z += math.sin(math.radians(self.camera.yr))
         if keyboard.is_pressed("q"):
-            self.camera.y += math.cos(math.radians(self.camera.zr))
+            self.camera.y += math.cos(math.radians(self.camera.zr)) * math.cos(math.radians(self.camera.xr))
             self.camera.x += math.sin(math.radians(self.camera.zr))
+            self.camera.z += math.sin(math.radians(self.camera.xr))
         if keyboard.is_pressed("e"):
-            self.camera.y -= math.cos(math.radians(self.camera.zr))
+            self.camera.y -= math.cos(math.radians(self.camera.zr)) * math.cos(math.radians(self.camera.xr))
             self.camera.x -= math.sin(math.radians(self.camera.zr))
-        if keyboard.is_pressed("1"):
-            self.camera.zr -= 1
-        if keyboard.is_pressed("2"):
-            self.camera.xr += 1
-        if keyboard.is_pressed("3"):
+            self.camera.z -= math.sin(math.radians(self.camera.xr))
+        if keyboard.is_pressed("7"):
             self.camera.zr += 1
-        if keyboard.is_pressed("4"):
+        if keyboard.is_pressed("2"):
             self.camera.xr -= 1
-        if keyboard.is_pressed("5"):
-            self.camera.yr += 1
-        if keyboard.is_pressed("6"):
+        if keyboard.is_pressed("3"):
+            self.camera.zr -= 1
+        if keyboard.is_pressed("4"):
             self.camera.yr -= 1
-        print(math.sin(math.radians(self.camera.yr)))
+        if keyboard.is_pressed("8"):
+            self.camera.xr += 1
+        if keyboard.is_pressed("6"):
+            self.camera.yr += 1
         i = 0
         for k in range(len(self.voxels)):
-            self.voxels[k] = Voxel(self.voxels[k].size, self.voxels[k].pos, self.camera)
+            self.voxels[k].update(self.camera)
         for voxel in self.voxels:
             for line in voxel.lines:
                 self.line_project[i].points = list(map(dp, line.project(
