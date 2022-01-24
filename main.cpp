@@ -53,12 +53,12 @@ class OcTree{
         sefv = south east forward voxel
         */
         int nwbv;
-        int swbv;
         int nebv;
+        int swbv;
         int sebv;
         int nwfv;
-        int swfv;
         int nefv;
+        int swfv;
         int sefv;
 
         OcTree *nwbt;
@@ -75,7 +75,7 @@ class OcTree{
         int is_root;
         int depth;
 
-        OcTree(int nwbv, int nebv, int swbv, int sebv, int nwfv, int swfv, int nefv, int sefv){
+        OcTree(int nwbv, int nebv, int swbv, int sebv, int nwfv, int nefv, int swfv, int sefv){
             OcTree::nwbv = nwbv;
             OcTree::swbv = swbv;
             OcTree::nebv = nebv;
@@ -88,7 +88,7 @@ class OcTree{
             OcTree::depth = 0;
         }
 
-        OcTree(OcTree nwbt, OcTree nebt, OcTree swbt, OcTree sebt, OcTree nwft, OcTree swft, OcTree neft, OcTree seft){
+        OcTree(OcTree nwbt, OcTree nebt, OcTree swbt, OcTree sebt, OcTree nwft, OcTree neft, OcTree swft, OcTree seft){
             OcTree::nwbt = &nwbt;
             OcTree::swbt = &swbt;
             OcTree::nebt = &nebt;
@@ -114,10 +114,10 @@ class OcTree{
                     return OcTree::nwbv;
                 }
                 else if (pos == "1"){
-                    return OcTree::swbv;
+                    return OcTree::nebv;
                 }
                 else if (pos == "2"){
-                    return OcTree::nebv;
+                    return OcTree::swbv;
                 }
                 else if (pos == "3"){
                     return OcTree::sebv;
@@ -126,10 +126,10 @@ class OcTree{
                     return OcTree::nwfv;
                 }
                 else if (pos == "5"){
-                    return OcTree::swfv;
+                    return OcTree::nefv;
                 }
                 else if (pos == "6"){
-                    return OcTree::nefv;
+                    return OcTree::swfv;
                 }
                 else if (pos == "7"){
                     return OcTree::sefv;
@@ -144,10 +144,10 @@ class OcTree{
                         return OcTree::nwbt->GetVoxel(pos.substr(1, pos.length()));
                     }
                     else if (pos[0] == '1'){
-                        return OcTree::swbt->GetVoxel(pos.substr(1, pos.length()));
+                        return OcTree::nebt->GetVoxel(pos.substr(1, pos.length()));
                     }
                     else if (pos[0] == '2'){
-                        return OcTree::nebt->GetVoxel(pos.substr(1, pos.length()));
+                        return OcTree::swbt->GetVoxel(pos.substr(1, pos.length()));
                     }
                     else if (pos[0] == '3'){
                         return OcTree::sebt->GetVoxel(pos.substr(1, pos.length()));
@@ -156,10 +156,10 @@ class OcTree{
                         return OcTree::nwft->GetVoxel(pos.substr(1, pos.length()));
                     }
                     else if (pos[0] == '5'){
-                        return OcTree::swft->GetVoxel(pos.substr(1, pos.length()));
+                        return OcTree::neft->GetVoxel(pos.substr(1, pos.length()));
                     }
                     else if (pos[0] == '6'){
-                        return OcTree::neft->GetVoxel(pos.substr(1, pos.length()));
+                        return OcTree::swft->GetVoxel(pos.substr(1, pos.length()));
                     }
                     else if (pos[0] == '7'){
                         return OcTree::seft->GetVoxel(pos.substr(1, pos.length()));
@@ -175,8 +175,8 @@ class OcTree{
             // east
             out += 2;
         }
-        if (pos.y < size_tree){
-            // south
+        if (pos.y >= size_tree){
+            // north
             out += 1;
         }
         if (pos.z >= size_tree){
@@ -190,10 +190,10 @@ class OcTree{
                 get_tree = *(OcTree::nwbt);
             }
             else if (out == 1){
-                get_tree = *(OcTree::swbt);
+                get_tree = *(OcTree::nebt);
             }
             else if (out == 2){
-                get_tree = *(OcTree::nebt);
+                get_tree = *(OcTree::swbt);
             }
             else if (out == 3){
                 get_tree = *(OcTree::sebt);
@@ -202,10 +202,10 @@ class OcTree{
                 get_tree = *(OcTree::nwft);
             }
             else if (out == 5){
-                get_tree = *(OcTree::swft);
+                get_tree = *(OcTree::neft);
             }
             else if (out == 6){
-                get_tree = *(OcTree::neft);
+                get_tree = *(OcTree::swft);
             }
             else if (out == 7){
                 get_tree = *(OcTree::seft);
@@ -232,7 +232,11 @@ int main(int argc, char** argv){
     xyz ray_dir = {0, 0, 0};
 
     OcTree voxels = OcTree(
-                           OcTree(0, 1, 2, 3, 4, 5, 6, 7),
+                           OcTree(0, 1,
+                                  2, 3,
+
+                                  4, 5,
+                                  6, 7),
                            OcTree(8, 9, 10, 11, 12, 13, 14, 15),
                            OcTree(16, 17, 18, 19, 20, 21, 22, 23),
                            OcTree(24, 25, 26, 27, 28, 29, 30, 31),
@@ -240,7 +244,7 @@ int main(int argc, char** argv){
                            OcTree(40, 41, 42, 43, 44, 45, 46, 47),
                            OcTree(48, 49, 50, 51, 52, 53, 54, 55),
                            OcTree(56, 57, 58, 59, 60, 61, 62, 63));
-    xyz pos = {0, 0, 0}; // TODO:fix this
+    xyz pos = {0, 0, 1}; // TODO:fix this
     cout << voxels.GetVoxel(voxels.get(pos)) << endl;
 
     glutMainLoop();
