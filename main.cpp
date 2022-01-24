@@ -4,6 +4,7 @@
 #include <GL/glut.h>
 #include <vector>
 #include <cmath>
+#define PI 3.14159265358979323846
 
 using namespace std;
 
@@ -12,7 +13,7 @@ void display(){
     glLoadIdentity();
 
     glBegin(GL_POINTS);
-        glVertex2f(0, 0);
+        glVertex2d(0, 0);
     glEnd();
 
     glFlush();
@@ -32,10 +33,21 @@ void init(){
     glClearColor(0, 0, 0, 1);
 }
 
+string binary(unsigned x) {
+    // Warning: this breaks for numbers with more than 64 bits
+    char buffer[64];
+    char* p = buffer + 64;
+    do
+    {
+        *--p = '0' + (x & 1);
+    } while (x >>= 1);
+    return string(p, buffer + 64);
+}
+
 struct xyz{
-    int x;
-    int y;
-    int z;
+    double x;
+    double y;
+    double z;
 } typedef xyz;
 
 class OcTree{
@@ -167,52 +179,53 @@ class OcTree{
                 }
             }
         }
-    string get(xyz pos){
-        int size_tree = pow(2, OcTree::depth);
-        string after = "";
-        int out = 0;
-        if (pos.x >= size_tree){
-            // east
-            out += 2;
+    int GetVoxel(xyz pos){
+        string x_bin = string(OcTree::depth - binary(pos.x).length() + 1, '0') + binary(pos.x);
+        string y_bin = string(OcTree::depth - binary(pos.y).length() + 1, '0') + binary(pos.y);
+        string z_bin = string(OcTree::depth - binary(pos.z).length() + 1, '0') + binary(pos.z);
+        cout << "z:" << z_bin << " y:" << y_bin << " x:" << x_bin << endl;
+        string out = "";
+        for (int i = 0;i < OcTree::depth + 1;i++){
+            out += to_string(stoi(string(1, z_bin[i]) + string(1, y_bin[i]) + string(1, x_bin[i]), nullptr, 2));
         }
-        if (pos.y >= size_tree){
-            // north
-            out += 1;
-        }
-        if (pos.z >= size_tree){
-            // forwards
-            out += 4;
-        }
-        if (OcTree::depth > 0){
-            xyz pos_after = {pos.x % 2, pos.y % 2, pos.z % 2};
-            OcTree get_tree = OcTree(-1, -1);
-            if (out == 0){
-                get_tree = *(OcTree::nwbt);
+        return OcTree::GetVoxel(out);
+    }
+
+    OcTree GetSmallestChild(string pos){
+        if (OcTree::is_root){
+                return OcTree(-1, -1);
             }
-            else if (out == 1){
-                get_tree = *(OcTree::nebt);
+            else {
+                if (OcTree::voxel_size){
+                    return OcTree(-1, -1);
+                }
+                else {
+                    if (pos[0] == '0'){
+                        return OcTree::nwbt->GetSmallestChild(pos.substr(1, pos.length()));
+                    }
+                    else if (pos[0] == '1'){
+                        return OcTree::nebt->GetSmallestChild(pos.substr(1, pos.length()));
+                    }
+                    else if (pos[0] == '2'){
+                        return OcTree::swbt->GetSmallestChild(pos.substr(1, pos.length()));
+                    }
+                    else if (pos[0] == '3'){
+                        return OcTree::sebt->GetSmallestChild(pos.substr(1, pos.length()));
+                    }
+                    else if (pos[0] == '4'){
+                        return OcTree::nwft->GetSmallestChild(pos.substr(1, pos.length()));
+                    }
+                    else if (pos[0] == '5'){
+                        return OcTree::neft->GetSmallestChild(pos.substr(1, pos.length()));
+                    }
+                    else if (pos[0] == '6'){
+                        return OcTree::swft->GetSmallestChild(pos.substr(1, pos.length()));
+                    }
+                    else if (pos[0] == '7'){
+                        return OcTree::seft->GetSmallestChild(pos.substr(1, pos.length()));
+                    }
+                }
             }
-            else if (out == 2){
-                get_tree = *(OcTree::swbt);
-            }
-            else if (out == 3){
-                get_tree = *(OcTree::sebt);
-            }
-            else if (out == 4){
-                get_tree = *(OcTree::nwft);
-            }
-            else if (out == 5){
-                get_tree = *(OcTree::neft);
-            }
-            else if (out == 6){
-                get_tree = *(OcTree::swft);
-            }
-            else if (out == 7){
-                get_tree = *(OcTree::seft);
-            }
-            after = get_tree.get(pos_after);
-        }
-        return after + to_string(out);
     }
 };
 
@@ -237,15 +250,39 @@ int main(int argc, char** argv){
 
                                   4, 5,
                                   6, 7),
-                           OcTree(8, 9, 10, 11, 12, 13, 14, 15),
+                           OcTree(8, 9,
+                                  10, 11,
+
+                                  12, 13,
+                                  14, 15),
                            OcTree(16, 17, 18, 19, 20, 21, 22, 23),
                            OcTree(24, 25, 26, 27, 28, 29, 30, 31),
                            OcTree(32, 33, 34, 35, 36, 37, 38, 39),
                            OcTree(40, 41, 42, 43, 44, 45, 46, 47),
                            OcTree(48, 49, 50, 51, 52, 53, 54, 55),
                            OcTree(56, 57, 58, 59, 60, 61, 62, 63));
-    xyz pos = {0, 0, 1}; // TODO:fix this
-    cout << voxels.GetVoxel(voxels.get(pos)) << endl;
+    xyz pos = {1, 0, 2};
+    cout << PI << endl;
+
+    int pos_aboslute_x = ray_pos.x;
+    int pos_aboslute_y = ray_pos.y;
+    int pos_aboslute_z = ray_pos.z;
+
+    int pos_dif_x = ray_pos.x - pos_aboslute_x;
+    int pos_dif_y = ray_pos.z - pos_aboslute_y;
+    int pos_dif_z = ray_pos.y - pos_aboslute_z;
+
+    int first_hor_x;
+    int first_ver_x;
+    int sub_hor_x;
+
+    if (ray_dir.z < PI && 0 > ray_dir.z){
+        first_hor_x = -pos_dif_y / tan(ray_dir.z);
+        first_ver_x = -pos_dif_y;
+        sub_hor_x = 1 / tan(ray_dir.z);
+    };
+
+
 
     glutMainLoop();
     return 0;
