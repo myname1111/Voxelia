@@ -44,11 +44,22 @@ string binary(unsigned x) {
     return string(p, buffer + 64);
 }
 
-struct xyz{
+struct xyzi{
+    int x;
+    int y;
+    int z;
+} typedef xyzi;
+
+struct xyzd{
     double x;
     double y;
     double z;
-} typedef xyz;
+} typedef xyzd;
+
+struct int_xyzi{
+    int int_part;
+    xyzi xyzi_part;
+} typedef int_xyzi;
 
 class OcTree{
     public:
@@ -179,11 +190,10 @@ class OcTree{
                 }
             }
         }
-    int GetVoxel(xyz pos){
+    int GetVoxel(xyzi pos){
         string x_bin = string(OcTree::depth - binary(pos.x).length() + 1, '0') + binary(pos.x);
         string y_bin = string(OcTree::depth - binary(pos.y).length() + 1, '0') + binary(pos.y);
         string z_bin = string(OcTree::depth - binary(pos.z).length() + 1, '0') + binary(pos.z);
-        cout << "z:" << z_bin << " y:" << y_bin << " x:" << x_bin << endl;
         string out = "";
         for (int i = 0;i < OcTree::depth + 1;i++){
             out += to_string(stoi(string(1, z_bin[i]) + string(1, y_bin[i]) + string(1, x_bin[i]), nullptr, 2));
@@ -229,6 +239,53 @@ class OcTree{
     }
 };
 
+int_xyzi ray_trace(xyzd ray_pos, xyzd ray_dir, OcTree voxels){
+    xyzd delta = {
+        ray_dir.x - ray_pos.x,
+        ray_dir.y - ray_pos.y,
+        ray_dir.z - ray_pos.z
+        };
+
+    xyzd dis_per_unit = {
+        sqrt(1 + (delta.y / delta.x) * (delta.y / delta.x) + (delta.z / delta.x) * (delta.z / delta.x)),
+        sqrt(1 + (delta.x / delta.y) * (delta.x / delta.y) + (delta.z / delta.y) * (delta.z / delta.y)),
+        sqrt(1 + (delta.x / delta.z) * (delta.x / delta.z) + (delta.y / delta.z) * (delta.y / delta.z))
+    };
+
+    xyzd distance = {
+        ray_dir.x + ray_dir.x * (ray_pos.x - (int)ray_pos.x),
+        ray_dir.y + ray_dir.y * (ray_pos.y - (int)ray_pos.y),
+        ray_dir.z + ray_dir.z * (ray_pos.z - (int)ray_pos.z)};
+    xyzi coords = {ray_pos.x + distance.x, ray_pos.y + distance.y, ray_pos.z + distance.z};
+    int out = 0;
+    int voxel_get = -1; // default voxel when out of range
+
+    for (int i = 0;!out && i < 1000;i++){
+        double max_dis = max(max(distance.x, distance.y), distance.z);
+        if (distance.x == max_dis && !isnan(distance.x)){
+            distance.x += dis_per_unit.x;
+        }
+        if (distance.y == max_dis && !isnan(distance.y)){
+            distance.y += dis_per_unit.y;
+        }
+        if (distance.z == max_dis && !isnan(distance.z)){
+            distance.z += dis_per_unit.z;
+        }
+        xyzi n_coords = {ray_pos.x + distance.x, ray_pos.y + distance.x, ray_pos.z + distance.x};
+        if (max(max(n_coords.x, n_coords.y), n_coords.z) > pow(2, voxels.depth)){
+            out = 1;
+        }
+        else {
+            coords = n_coords;
+        }
+        if (voxels.GetVoxel(coords) != 0){
+            out = 1;
+            voxel_get = voxels.GetVoxel(coords);
+        }
+    }
+    return int_xyzi{voxel_get, coords};
+}
+
 int main(int argc, char** argv){
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGB);
@@ -241,48 +298,22 @@ int main(int argc, char** argv){
     glutDisplayFunc(display);
     init();
 
-    xyz ray_pos = {0, 0, 0};
-    xyz ray_dir = {0, 0, 0};
+    xyzd ray_pos = {0, 0, 0};
+    xyzd ray_dir = {1, 1, 0};
 
     OcTree voxels = OcTree(
-                           OcTree(0, 1,
-                                  2, 3,
+                           0, 0,
+                           0, 0,
 
-                                  4, 5,
-                                  6, 7),
-                           OcTree(8, 9,
-                                  10, 11,
-
-                                  12, 13,
-                                  14, 15),
-                           OcTree(16, 17, 18, 19, 20, 21, 22, 23),
-                           OcTree(24, 25, 26, 27, 28, 29, 30, 31),
-                           OcTree(32, 33, 34, 35, 36, 37, 38, 39),
-                           OcTree(40, 41, 42, 43, 44, 45, 46, 47),
-                           OcTree(48, 49, 50, 51, 52, 53, 54, 55),
-                           OcTree(56, 57, 58, 59, 60, 61, 62, 63));
-    xyz pos = {1, 0, 2};
+                           0, 0,
+                           1, 1
+                           );
+    xyzi pos = {1, 0, 2};
     cout << PI << endl;
 
-    int pos_aboslute_x = ray_pos.x;
-    int pos_aboslute_y = ray_pos.y;
-    int pos_aboslute_z = ray_pos.z;
+    int_xyzi out = ray_trace(ray_pos, ray_dir, voxels);
 
-    int pos_dif_x = ray_pos.x - pos_aboslute_x;
-    int pos_dif_y = ray_pos.z - pos_aboslute_y;
-    int pos_dif_z = ray_pos.y - pos_aboslute_z;
-
-    int first_hor_x;
-    int first_ver_x;
-    int sub_hor_x;
-
-    if (ray_dir.z < PI && 0 > ray_dir.z){
-        first_hor_x = -pos_dif_y / tan(ray_dir.z);
-        first_ver_x = -pos_dif_y;
-        sub_hor_x = 1 / tan(ray_dir.z);
-    };
-
-
+    cout << out.xyzi_part.x << " " << out.xyzi_part.y << " " << out.xyzi_part.z << " " << out.int_part << endl;
 
     glutMainLoop();
     return 0;
