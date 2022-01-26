@@ -8,17 +8,6 @@
 
 using namespace std;
 
-void display(){
-    glClear(GL_COLOR_BUFFER_BIT);
-    glLoadIdentity();
-
-    glBegin(GL_POINTS);
-        glVertex2d(0, 0);
-    glEnd();
-
-    glFlush();
-}
-
 class Voxel{
     public:
         int type;
@@ -239,11 +228,23 @@ class OcTree{
     }
 };
 
-int_xyzi ray_trace(xyzd ray_pos, xyzd ray_dir, OcTree voxels){
+xyzd ray_pos = {0.384, 0.683, 0};
+xyzd ray_dir;
+
+OcTree voxels = OcTree(
+                        0, 0,
+                        0, 0,
+
+                        0, 0,
+                        1, 1
+                        );
+xyzi pos = {1, 0, 2};
+
+int_xyzi ray_trace(xyzd rpos, xyzd rdir, OcTree vox){
     xyzd delta = {
-        ray_dir.x - ray_pos.x,
-        ray_dir.y - ray_pos.y,
-        ray_dir.z - ray_pos.z
+        rdir.x - rpos.x,
+        rdir.y - rpos.y,
+        rdir.z - rpos.z
         };
 
     xyzd dis_per_unit = {
@@ -253,12 +254,12 @@ int_xyzi ray_trace(xyzd ray_pos, xyzd ray_dir, OcTree voxels){
     };
 
     xyzd distance = {
-        ray_dir.x + ray_dir.x * (ray_pos.x - (int)ray_pos.x),
-        ray_dir.y + ray_dir.y * (ray_pos.y - (int)ray_pos.y),
-        ray_dir.z + ray_dir.z * (ray_pos.z - (int)ray_pos.z)};
-    xyzi coords = {ray_pos.x + distance.x, ray_pos.y + distance.y, ray_pos.z + distance.z};
+        rdir.x + rdir.x * (rpos.x - (int)rpos.x),
+        rdir.y + rdir.y * (rpos.y - (int)rpos.y),
+        rdir.z + rdir.z * (rpos.z - (int)rpos.z)};
+    xyzi coords = {rpos.x + distance.x, rpos.y + distance.y, rpos.z + distance.z};
     int out = 0;
-    int voxel_get = -1; // default voxel when out of range
+    int voxel_get = 0; // default voxel when out of range
 
     for (int i = 0;!out && i < 1000;i++){
         double max_dis = max(max(distance.x, distance.y), distance.z);
@@ -272,18 +273,37 @@ int_xyzi ray_trace(xyzd ray_pos, xyzd ray_dir, OcTree voxels){
             distance.z += dis_per_unit.z;
         }
         xyzi n_coords = {ray_pos.x + distance.x, ray_pos.y + distance.x, ray_pos.z + distance.x};
-        if (max(max(n_coords.x, n_coords.y), n_coords.z) > pow(2, voxels.depth)){
+        if (max(max(n_coords.x, n_coords.y), n_coords.z) >= pow(2, vox.depth)){
             out = 1;
         }
         else {
             coords = n_coords;
-        }
-        if (voxels.GetVoxel(coords) != 0){
-            out = 1;
-            voxel_get = voxels.GetVoxel(coords);
+            if (vox.GetVoxel(coords) != 0){
+                out = 1;
+                voxel_get = vox.GetVoxel(coords);
+            }
         }
     }
     return int_xyzi{voxel_get, coords};
+}
+
+void display(){
+    glClear(GL_COLOR_BUFFER_BIT);
+    glLoadIdentity();
+
+    glBegin(GL_POINTS);
+        for (int x = 0;x <= 1366;x++){
+            for (int y = 0;y <= 768;y++){
+                ray_dir = {x / 100, y / 100, 0};
+                int_xyzi out = ray_trace(ray_pos, ray_dir, voxels);
+                if (out.int_part){
+                    glVertex2d(x / 1366, y / 768);
+                }
+            }
+        }
+    glEnd();
+
+    glFlush();
 }
 
 int main(int argc, char** argv){
@@ -291,29 +311,12 @@ int main(int argc, char** argv){
     glutInitDisplayMode(GLUT_RGB);
 
     glutInitWindowPosition(0, 0);
-    glutInitWindowSize(1280, 720);
+    glutInitWindowSize(1366, 768);
 
     glutCreateWindow("Voxelia");
 
     glutDisplayFunc(display);
     init();
-
-    xyzd ray_pos = {0, 0, 0};
-    xyzd ray_dir = {1, 1, 0};
-
-    OcTree voxels = OcTree(
-                           0, 0,
-                           0, 0,
-
-                           0, 0,
-                           1, 1
-                           );
-    xyzi pos = {1, 0, 2};
-    cout << PI << endl;
-
-    int_xyzi out = ray_trace(ray_pos, ray_dir, voxels);
-
-    cout << out.xyzi_part.x << " " << out.xyzi_part.y << " " << out.xyzi_part.z << " " << out.int_part << endl;
 
     glutMainLoop();
     return 0;
