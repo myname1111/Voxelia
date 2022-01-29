@@ -4,6 +4,8 @@
 #include <GL/glut.h>
 #include <vector>
 #include <cmath>
+#include <algorithm>
+#include <iterator>
 #define PI 3.14159265358979323846
 
 using namespace std;
@@ -17,6 +19,16 @@ class Voxel{
         Voxel(){
         }
 };
+
+int max_val(vector<int> arr){
+    int maximum = 0;
+    for (int element : arr){
+        if (element > maximum){
+            maximum = element;
+        }
+    }
+    return maximum;
+}
 
 void init(){
     glClearColor(0, 0, 0, 1);
@@ -179,20 +191,20 @@ class OcTree{
                 }
             }
         }
-    int GetVoxel(xyzi pos){
-        string x_bin = string(OcTree::depth - binary(pos.x).length() + 1, '0') + binary(pos.x);
-        string y_bin = string(OcTree::depth - binary(pos.y).length() + 1, '0') + binary(pos.y);
-        string z_bin = string(OcTree::depth - binary(pos.z).length() + 1, '0') + binary(pos.z);
-        string out = "";
-        for (int i = 0;i < OcTree::depth + 1;i++){
-            out += to_string(stoi(string(1, z_bin[i]) + string(1, y_bin[i]) + string(1, x_bin[i]), nullptr, 2));
+        int GetVoxel(xyzi pos){
+            string x_bin = string(OcTree::depth - binary(pos.x).length() + 1, '0') + binary(pos.x);
+            string y_bin = string(OcTree::depth - binary(pos.y).length() + 1, '0') + binary(pos.y);
+            string z_bin = string(OcTree::depth - binary(pos.z).length() + 1, '0') + binary(pos.z);
+            string out = "";
+            for (int i = 0;i < OcTree::depth + 1;i++){
+                out += to_string(stoi(string(1, z_bin[i]) + string(1, y_bin[i]) + string(1, x_bin[i]), nullptr, 2));
+            }
+            return OcTree::GetVoxel(out);
         }
-        return OcTree::GetVoxel(out);
-    }
 
-    OcTree GetSmallestChild(string pos){
-        if (OcTree::is_root){
-                return OcTree(-1, -1);
+        OcTree GetSmallestChild(string pos){
+            if (OcTree::is_root){
+                    return OcTree(-1, -1);
             }
             else {
                 if (OcTree::voxel_size){
@@ -225,7 +237,17 @@ class OcTree{
                     }
                 }
             }
-    }
+        }
+        OcTree GetSmallestChild(xyzi pos){
+            string x_bin = string(OcTree::depth - binary(pos.x).length() + 1, '0') + binary(pos.x);
+            string y_bin = string(OcTree::depth - binary(pos.y).length() + 1, '0') + binary(pos.y);
+            string z_bin = string(OcTree::depth - binary(pos.z).length() + 1, '0') + binary(pos.z);
+            string out = "";
+            for (int i = 0;i < OcTree::depth + 1;i++){
+                out += to_string(stoi(string(1, z_bin[i]) + string(1, y_bin[i]) + string(1, x_bin[i]), nullptr, 2));
+            }
+            return OcTree::GetSmallestChild(out);
+        }
 };
 
 xyzd ray_pos = {0.384, 0.683, 0};
@@ -241,50 +263,147 @@ OcTree voxels = OcTree(
 xyzi pos = {1, 0, 2};
 
 int_xyzi ray_trace(xyzd rpos, xyzd rdir, OcTree vox){
-    xyzd delta = {
-        rdir.x - rpos.x,
-        rdir.y - rpos.y,
-        rdir.z - rpos.z
-        };
-
-    xyzd dis_per_unit = {
-        sqrt(1 + (delta.y / delta.x) * (delta.y / delta.x) + (delta.z / delta.x) * (delta.z / delta.x)),
-        sqrt(1 + (delta.x / delta.y) * (delta.x / delta.y) + (delta.z / delta.y) * (delta.z / delta.y)),
-        sqrt(1 + (delta.x / delta.z) * (delta.x / delta.z) + (delta.y / delta.z) * (delta.y / delta.z))
-    };
-
-    xyzd distance = {
-        rdir.x + rdir.x * (rpos.x - (int)rpos.x),
-        rdir.y + rdir.y * (rpos.y - (int)rpos.y),
-        rdir.z + rdir.z * (rpos.z - (int)rpos.z)};
-    xyzi coords = {rpos.x + distance.x, rpos.y + distance.y, rpos.z + distance.z};
-    int out = 0;
-    int voxel_get = 0; // default voxel when out of range
-
-    for (int i = 0;!out && i < 1000;i++){
-        double max_dis = max(max(distance.x, distance.y), distance.z);
-        if (distance.x == max_dis && !isnan(distance.x)){
-            distance.x += dis_per_unit.x;
+    double pos[3] = {rpos.x, rpos.y, rpos.z};
+    double dir[3] = {rdir.x, rdir.y, rdir.z};
+    double coordx[3] = {pos[0], pos[1], pos[2]};
+    double n_coordx[3];
+    double coordy[3] = {pos[0], pos[1], pos[2]};
+    double n_coordy[3];
+    double coordz[3] = {pos[0], pos[1], pos[2]};
+    double n_coordz[3];
+    double distra[3] = {0, 0, 0};
+    double n_distra[3];
+    double distance[3]; // this is the distance travelled if I were to travel one unit in one direction in space
+    double out[3] = {-1, -1, -1};
+    double x[3];
+    double y[3];
+    double z[3];
+    int hit[3] = {0, 0, 0};
+    for (int i = 0;i < 3;i++){
+        x[i] = dir[0] / dir[i];
+        y[i] = dir[1] / dir[i];
+        z[i] = dir[2] / dir[i];
+        distance[i] = sqrt(x[i] * x[i] + y[i] * y[i] + z[i] * z[i]);
+    }
+    copy(begin(coordx), end(coordx), begin(n_coordx));
+    copy(begin(coordy), end(coordy), begin(n_coordy));
+    copy(begin(coordz), end(coordz), begin(n_coordz));
+    n_distra[0] = distra[0];
+    n_distra[1] = distra[1];
+    n_distra[2] = distra[2];
+    for (int i = 0;i < 10;i++){
+        distra[0] = n_distra[0];
+        distra[1] = n_distra[1];
+        distra[2] = n_distra[2];
+        copy(begin(n_coordx), end(n_coordx), begin(coordx));
+        copy(begin(n_coordy), end(n_coordy), begin(coordy));
+        copy(begin(n_coordz), end(n_coordz), begin(coordz));
+        int octree_optimized_distancex = vox.GetSmallestChild(xyzi{coordx[0], coordx[1], coordx[2]}).voxel_size == -1 ?
+        1 : pow(2, vox.GetSmallestChild(xyzi{coordx[0], coordx[1], coordx[2]}).depth);
+        int octree_optimized_distancey = vox.GetSmallestChild(xyzi{coordy[0], coordy[1], coordy[2]}).voxel_size == -1 ?
+        1 : pow(2, vox.GetSmallestChild(xyzi{coordy[0], coordy[1], coordy[2]}).depth);
+        int octree_optimized_distancez = vox.GetSmallestChild(xyzi{coordz[0], coordz[1], coordz[2]}).voxel_size == -1 ?
+        1 : pow(2, vox.GetSmallestChild(xyzi{coordz[0], coordz[1], coordz[2]}).depth);
+        if (distra[0] != max_val(std::vector<int>(distra, distra + sizeof(distra) / sizeof(distra[0])))){
+            n_distra[0] += distance[0] * octree_optimized_distancex;
+            n_coordx[0] += x[0] * octree_optimized_distancex;
+            n_coordx[1] += y[0] * octree_optimized_distancex;
+            n_coordx[2] += z[0] * octree_optimized_distancex;
         }
-        if (distance.y == max_dis && !isnan(distance.y)){
-            distance.y += dis_per_unit.y;
+        if (distra[1] != max_val(std::vector<int>(distra, distra + sizeof(distra) / sizeof(distra[0])))){
+            n_distra[1] += distance[1] * octree_optimized_distancey;
+            n_coordy[0] += x[1] * octree_optimized_distancey;
+            n_coordy[1] += y[1] * octree_optimized_distancey;
+            n_coordy[2] += z[1] * octree_optimized_distancey;
         }
-        if (distance.z == max_dis && !isnan(distance.z)){
-            distance.z += dis_per_unit.z;
+        if (distra[2] != max_val(std::vector<int>(distra, distra + sizeof(distra) / sizeof(distra[0])))){
+            n_distra[2] += distance[2] * octree_optimized_distancez;
+            n_coordz[0] += x[2] * octree_optimized_distancez;
+            n_coordz[1] += y[2] * octree_optimized_distancez;
+            n_coordz[2] += z[2] * octree_optimized_distancez;
         }
-        xyzi n_coords = {ray_pos.x + distance.x, ray_pos.y + distance.x, ray_pos.z + distance.x};
-        if (max(max(n_coords.x, n_coords.y), n_coords.z) >= pow(2, vox.depth)){
-            out = 1;
+        if (distra[0] == distra[1] && distra[1] == distra[2]){
+            n_distra[0] += distance[0] * octree_optimized_distancex;
+            n_coordx[0] += x[0] * octree_optimized_distancex;
+            n_coordx[1] += y[0] * octree_optimized_distancex;
+            n_coordx[2] += z[0] * octree_optimized_distancex;
+        }
+        if (
+            max(
+                max_val(std::vector<int>(n_coordx, n_coordx + sizeof(n_coordx) / sizeof(n_coordx[0]))),
+                max(
+                    max_val(std::vector<int>(n_coordy, n_coordy + sizeof(n_coordy) / sizeof(n_coordy[0]))),
+                    max_val(std::vector<int>(n_coordz, n_coordz + sizeof(n_coordz) / sizeof(n_coordz[0])))
+                )
+            )
+            > pow(2, vox.depth + 1)){
+            hit[0] = max_val(std::vector<int>(n_coordx, n_coordx + sizeof(n_coordx) / sizeof(n_coordx[0]))) > pow(2, vox.depth + 1);
+            hit[1] = max_val(std::vector<int>(n_coordy, n_coordy + sizeof(n_coordy) / sizeof(n_coordy[0]))) > pow(2, vox.depth + 1);
+            hit[2] = max_val(std::vector<int>(n_coordz, n_coordz + sizeof(n_coordz) / sizeof(n_coordz[0]))) > pow(2, vox.depth + 1);
         }
         else {
-            coords = n_coords;
-            if (vox.GetVoxel(coords) != 0){
-                out = 1;
-                voxel_get = vox.GetVoxel(coords);
+            if (!hit[0]){
+                if ((vox.GetVoxel(xyzi{coordx[0], coordx[1], coordx[2]}) == 1)){
+                    hit[0] = max_val(std::vector<int>(n_coordx, n_coordx + sizeof(n_coordx) / sizeof(n_coordx[0]))) > pow(2, vox.depth + 1);
+                    out[0] = out[0] != -1 && (
+                                              sqrt(
+                                                   out[0] * out[0] +
+                                                   out[1] * out[1] +
+                                                   out[2] * out[2]
+                                                   ) <
+                                              sqrt(
+                                                  (n_coordx[0] - pos[0]) * (n_coordx[0] - pos[0]) +
+                                                  (n_coordx[1] - pos[1]) * (n_coordx[1] - pos[1]) +
+                                                  (n_coordx[2] - pos[2]) * (n_coordx[2] - pos[0]))) ?
+                    sqrt(
+                        (n_coordx[0] - pos[0]) * (n_coordx[0] - pos[0]) +
+                        (n_coordx[1] - pos[1]) * (n_coordx[1] - pos[1]) +
+                        (n_coordx[2] - pos[2]) * (n_coordx[2] - pos[0])) : out[0];
+                }
+            }
+            if (!hit[1]){
+                if ((vox.GetVoxel(xyzi{coordy[0], coordy[1], coordy[2]}) == 1)){
+                    hit[1] = max_val(std::vector<int>(n_coordy, n_coordy + sizeof(n_coordy) / sizeof(n_coordy[0]))) > pow(2, vox.depth + 1);
+                    out[1] = out[1] != -1 && (
+                                              sqrt(
+                                                   out[0] * out[0] +
+                                                   out[1] * out[1] +
+                                                   out[2] * out[2]
+                                                   ) <
+                                              sqrt(
+                                                  (n_coordx[0] - pos[0]) * (n_coordx[0] - pos[0]) +
+                                                  (n_coordx[1] - pos[1]) * (n_coordx[1] - pos[1]) +
+                                                  (n_coordx[2] - pos[2]) * (n_coordx[2] - pos[0]))) ?
+                    sqrt(
+                        (n_coordx[0] - pos[0]) * (n_coordx[0] - pos[0]) +
+                        (n_coordx[1] - pos[1]) * (n_coordx[1] - pos[1]) +
+                        (n_coordx[2] - pos[2]) * (n_coordx[2] - pos[0])) : out[1];
+                }
+            }
+            if (!hit[2]){
+                if ((vox.GetVoxel(xyzi{coordz[0], coordz[1], coordz[2]}) == 1)){
+                    hit[2] = max_val(std::vector<int>(n_coordz, n_coordz + sizeof(n_coordz) / sizeof(n_coordz[0]))) > pow(2, vox.depth + 1);
+                    out[2] = out[2] != -1 && (
+                                              sqrt(
+                                                   out[0] * out[0] +
+                                                   out[1] * out[1] +
+                                                   out[2] * out[2]
+                                                   ) <
+                                              sqrt(
+                                                  (n_coordx[0] - pos[0]) * (n_coordx[0] - pos[0]) +
+                                                  (n_coordx[1] - pos[1]) * (n_coordx[1] - pos[1]) +
+                                                  (n_coordx[2] - pos[2]) * (n_coordx[2] - pos[0]))) ?
+                    sqrt(
+                        (n_coordx[0] - pos[0]) * (n_coordx[0] - pos[0]) +
+                        (n_coordx[1] - pos[1]) * (n_coordx[1] - pos[1]) +
+                        (n_coordx[2] - pos[2]) * (n_coordx[2] - pos[0])) : out[2];
+                }
+            }
+            if (hit[0] && hit[1] && hit[2]){
+                return int_xyzi{vox.GetVoxel(xyzi{out[0], out[1], out[2]}), xyzi{out[0], out[1], out[2]}};
             }
         }
     }
-    return int_xyzi{voxel_get, coords};
 }
 
 void display(){
@@ -292,15 +411,17 @@ void display(){
     glLoadIdentity();
 
     glBegin(GL_POINTS);
-        for (int x = 0;x <= 1366;x++){
-            for (int y = 0;y <= 768;y++){
-                ray_dir = {x / 100, y / 100, 0};
+    /*
+        for (int x = 0;x <= 256;x++){
+            for (int y = 0;y <= 144;y++){
+                ray_dir = {1, 1, 1};
                 int_xyzi out = ray_trace(ray_pos, ray_dir, voxels);
                 if (out.int_part){
-                    glVertex2d(x / 1366, y / 768);
+                    glVertex2d(x / 256, y / 144);
                 }
+                cout << out.int_part << endl;
             }
-        }
+    */
     glEnd();
 
     glFlush();
@@ -311,12 +432,18 @@ int main(int argc, char** argv){
     glutInitDisplayMode(GLUT_RGB);
 
     glutInitWindowPosition(0, 0);
-    glutInitWindowSize(1366, 768);
+    glutInitWindowSize(256, 144);
 
     glutCreateWindow("Voxelia");
 
     glutDisplayFunc(display);
     init();
+
+    xyzd ray_pos = {0, 0, 0};
+    ray_dir = {0.1, 0.1, 0.1};
+    int_xyzi out = ray_trace(ray_pos, ray_dir, voxels);
+
+    cout << out.int_part << " " << out.xyzi_part.x <<  " " << out.xyzi_part.y <<  " " << out.xyzi_part.z << endl;
 
     glutMainLoop();
     return 0;
